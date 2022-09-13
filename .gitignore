@@ -1,1 +1,4 @@
 *.m~
+.DS_STORE
+~$*.xls*
+.~lock.*
