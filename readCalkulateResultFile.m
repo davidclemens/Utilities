@@ -112,6 +112,11 @@ function T = readCalkulateResultFile(file)
     tokens = cat(1,tokens{:});
     T.Status = categorical(cat(1,tokens{:}));
     
+    % Add sampleType column
+    sampleType = repmat({'Standard'},size(T,1),1);
+    sampleType(isnan(T{:,'AlkalinityCertified'})) = {'Sample'};
+    T.SampleType = categorical(sampleType);
+    
     function l = str2logical(str)
         l = cellfun(@(x) strcmp(x,'True'),str);
     end
