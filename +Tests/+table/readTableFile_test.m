@@ -1,29 +1,17 @@
 classdef (SharedTestFixtures = { ...
             matlab.unittest.fixtures.PathFixture(subsref(strsplit(mfilename('fullpath'),'/+'),substruct('{}',{':'})))
         }) readTableFile_test < matlab.unittest.TestCase
-    
-% run:
-% tests = matlab.unittest.TestSuite.fromClass(?Tests.DataKit.readTableFile_test);
-% run(tests)
+    % readTableFile_test  Unittests for table.readTableFile
+    % This class holds the unittests for the table.readTableFile function.
+    %
+    % It can be run with runtests('Tests.table.readTableFile_test').
+    %
+    %
+    % Copyright (c) 2022-2022 David Clemens (dclemens@geomar.de)
+    %
     
     properties
         RessourcePath = [fileparts(mfilename('fullpath')),'/ressources/']
-    end
-    properties (MethodSetupParameter)
-        
-    end
-    properties (TestParameter)
-        
-    end
-    
-    methods (TestClassSetup)
-        
-    end
-    methods (TestMethodSetup)
-        
-    end
-    methods (TestMethodTeardown)
-        
     end
     
     methods (Test)

@@ -46,7 +46,7 @@ function T = readTableFile(filename, varargin)
 %   Name-Value Pair Arguments
 %
 %
-%   See also TABLE
+%   See also TABLE.READTABLEFILE, TABLE
 %
 %   Copyright (c) 2022-2022 David Clemens (dclemens@geomar.de)
 %
