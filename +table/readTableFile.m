@@ -60,7 +60,7 @@ function T = readTableFile(filename)
 %   Copyright (c) 2022-2022 David Clemens (dclemens@geomar.de)
 %
 
-    % TODO: validate header rows.
+    % TODO: Validate header rows.
     
     % Check that file exists
     if exist(filename,'file') ~= 2
@@ -90,11 +90,12 @@ function T = readTableFile(filename)
     rawHeader(~cellfun(@ischar,rawHeader))	= {''};
     VarFormat       = rawHeader(4,:);     % extract variable format
 
-    % definitions
-    validFormatSpec             = {'%d','%d8','%d16','%d32','%d64','%u','%u8','%u16','%u32','%u64','%f','%f32','%f64','%n','%L','%s','%D','%C'};
-    validFormatSpecClass        = {'int32','int8','int16','int32','int64','uint32','uint8','uint16','uint32','uint64','double','single','double','double','logical','cellstr','datetime','categorical'};
-    validFormatSpecIsNumeric    = [true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,false,false];
-    validFormatSpecRE           = {'^%(\*?)\*?d$','^%(\*?)d8$','^%(\*?)d16$','^%(\*?)d32$','^%(\*?)d64$','^%(\*?)u$','^%(\*?)u8$','^%(\*?)u16$','^%(\*?)u32$','^%(\*?)u64$','^%(\*?)f$','^%(\*?)f32$','^%(\*?)f64$','^%(\*?)n$','^%(\*?)L$','^%(\*?)s$','^%(\*?)D$','^%(\*?)C$'};
+    % Definitions of format specifiers
+    validFormatSpecT            = table.formatSpec.listFormatSpecs;
+    validFormatSpec             = validFormatSpecT{:,'FormatSpec'};
+    validFormatSpecClass        = validFormatSpecT{:,'Class'};
+    validFormatSpecIsNumeric    = validFormatSpecT{:,'IsNumeric'};
+    validFormatSpecRE           = strcat({'^%(?<keepColumn>\*?)(?<formatSpec>{.+})?'},strip(validFormatSpec,'left','%'),{'$'});
     nValidFormatSpecs           = numel(validFormatSpecRE);
 
     [validClasses,indU1,indU2] 	= unique(validFormatSpecClass,'stable');
@@ -163,7 +164,7 @@ function T = readTableFile(filename)
             switch validClasses{occuringClassesInd(cl)}
                 case 'logical'
                     classCell{cl} = false(nRows,1);
-                case 'cellstr'
+                case 'cell'
                     classCell{cl} = repmat({''},nRows,1);
                 case 'datetime'
                     classCell{cl} = NaT(nRows,1);
@@ -235,7 +236,7 @@ function T = readTableFile(filename)
                         else
                             data = logical(cat(1,rawIn{:})); % If raw logical data contains no text save the extra steps.
                         end
-                    case 'cellstr'
+                    case 'cell'
                         valIsChar = cellfun(@ischar,rawIn);
                         if any(valIsChar)
                             data = T{~maskNoData(:,col),col}; % Initialize
