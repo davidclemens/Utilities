@@ -1,4 +1,4 @@
-function T = readTableFile(filename, varargin)
+function T = readTableFile(filename)
 % readTableFile  Read fully defined Excel table
 %   READTABLEFILE reads an Excel file with four header rows that define the
 %     column names, descriptions, units and data types, which are returned as
@@ -27,12 +27,21 @@ function T = readTableFile(filename, varargin)
 %         3. Variable (column) descriptions
 %         4. Varaible (column) data type
 %
-%         1 to 3 are read as character vectors. 4 must be one of the types
-%         defined in the formatSpec of <a href="https://www.mathworks.com/help/releases/R2017b/matlab/ref/textscan.html#inputarg_formatSpec">textscan</a>.
+%         1 to 3 are read as character vectors. 4 must be one of the conversion
+%         specifiers defined in the formatSpec of <a href="https://www.mathworks.com/help/releases/R2017b/matlab/ref/textscan.html#inputarg_formatSpec">textscan</a>.
+%         
+%         Special values are interpreted as follows:
+%           - If data type is double or single, 'NaN' & empty cells are read as
+%             NaN. 'Inf' & '-Inf' are read as Inf & -Inf respectively.
+%           - If data type is datetime, 'NaT' & empty cells are read as NaT.
+%            'Inf' & '-Inf' are read as Inf & -Inf respectively.
+%           - If data type is categorical, '<undefined>' is read as <undefined>.
 %
 %         Tips:
 %           - To skip a column add a star to format spec: %*k, where k is any 
 %             conversion specifier.
+%           - To improve importing of non-Excel datetimes, also specify the
+%             formatSpec of the column with '%{fmt}D' as defined for <a href="https://www.mathworks.com/help/releases/R2017b/matlab/ref/datetime.html#inputarg_infmt">datetime</a>.
 %
 %   Output Arguments
 %     T - Output table
@@ -76,7 +85,7 @@ function T = readTableFile(filename, varargin)
         	'There are only %u rows in the table file. At least 4 header rows are required.',nRows)
     end
     
-    % make sure all header entries are cellstrings
+    % Make sure all header entries are cellstrings
     rawHeader       = rawWithHeader(1:4,:);
     rawHeader(~cellfun(@ischar,rawHeader))	= {''};
     VarFormat       = rawHeader(4,:);     % extract variable format
@@ -92,19 +101,19 @@ function T = readTableFile(filename, varargin)
     validClassesIsNumeric       = validFormatSpecIsNumeric(indU1);
     nValidClasses               = numel(validClasses);
     
-    % check formatSpec input
+    % Check formatSpec input
     nColumns            = size(rawWithHeader,2);
     maskFormatSpec     	= false(nValidFormatSpecs,nColumns);
     tokens              = cell(nValidFormatSpecs,nColumns);
     for fs = 1:nValidFormatSpecs
-        [tmp1,tokens(fs,:)]  	= regexp(VarFormat,validFormatSpecRE{fs},'start','tokens','forceCellOutput');
+        [tmp1,tokens(fs,:)]  	= regexp(VarFormat,validFormatSpecRE{fs},'start','names','forceCellOutput');
         maskFormatSpec(fs,:)  	= ~cellfun(@isempty,tmp1);
     end
     
     % Find columns to skip
-    tokens = cat(1,tokens{maskFormatSpec});
-    tokens = cat(1,tokens{:});
-    keepColumns = ~ismember(tokens,'*');
+    tokens = struct2table(cat(1,tokens{maskFormatSpec}),'AsArray',true);
+    keepColumns = ~ismember(tokens{:,'keepColumn'},'*');
+    formatSpec	= cellfun(@(s) regexprep(s,'[{}]',''),tokens{:,'formatSpec'},'un',0);
     
     % Only keep relevant columns
     if ~all(keepColumns)
@@ -157,7 +166,7 @@ function T = readTableFile(filename, varargin)
                 case 'cellstr'
                     classCell{cl} = repmat({''},nRows,1);
                 case 'datetime'
-                    classCell{cl} = NaT(nRows,1,'Format','dd.MM.yyyy HH:mm:ss');
+                    classCell{cl} = NaT(nRows,1);
                 case 'categorical'
                     classCell{cl} = categorical(NaN(nRows,1));
                 otherwise
@@ -236,8 +245,39 @@ function T = readTableFile(filename, varargin)
                             data = rawIn;
                         end
                     case 'datetime'
-                        data    = datetime(cat(1,rawIn{:}),'ConvertFrom','excel');
+                        valIsChar = cellfun(@ischar,rawIn);
+                        valIsInf = valIsChar;
+                        valIsInf(valIsChar) = ~cellfun(@isempty,regexp(rawIn(valIsChar),'^\-?Inf$'));
+                        valIsNonInfChar = valIsChar & ~valIsInf;
+                        valIsExcelNumeric = ~valIsChar;
+                        
+                        data = T{~maskNoData(:,col),col}; % Initialize
+                        if any(valIsNonInfChar)
+                            % If rawIn contains chars and the column is a datetime, the row(s) containing
+                            % chars are not an Excel date. Import them accorting to formatSpec, but import
+                            % Excel dates (row(s) containing numeric values) as Excel dates.
+                            
+                            % Non-Excel dates only work with non-empty formatSpec
+                            assert(~isempty(formatSpec{col}),...
+                                'Utilities:table:readTableFile:NonExcelDateWithoutFormatSpec',...
+                                'Column %u has non-Excel-date dates (prior to 1900) without a formatSpec being specified. Please specify a formatSpec in the 4th header row as ''%%{fmt}D''.',col)
+                            
+                            data(valIsNonInfChar)	= datetime(rawIn(valIsNonInfChar),...
+                                                'InputFormat',  formatSpec{col},...
+                                                'Locale',       'system');
+                        end
+                        if any(valIsInf)
+                            data(valIsInf) = datetime(rawIn(valIsInf));
+                        end
+                        if any(valIsExcelNumeric)
+                            % Excel 1900 date system is used
+                            data(valIsExcelNumeric) = datetime(cat(1,rawIn{valIsExcelNumeric}),'ConvertFrom','excel');
+                        end
                     case 'categorical'
+                        % Replace '<undefined>' with '' to be converted to <undefined>
+                        isChar          = cellfun(@ischar,rawIn);
+                        rawIn(isChar)   = cellfun(@(s) strrep(s,'<undefined>',''),rawIn(isChar),'un',0);
+                        
                         valIsNumeric = cellfun(@isnumeric,rawIn);
                         if any(valIsNumeric)
                             data = T{~maskNoData(:,col),col}; % Initialize
@@ -253,6 +293,8 @@ function T = readTableFile(filename, varargin)
             end
         catch ME
             switch ME.identifier
+                case {'Utilities:table:readTableFile:NonExcelDateWithoutFormatSpec'}
+                    rethrow(ME)
                 otherwise
                     error('Utilities:table:readTableFile:Conversion',...
                         'While trying to convert column %u to %s the following error occured:\n%s\n',col,columnClass,ME.message)

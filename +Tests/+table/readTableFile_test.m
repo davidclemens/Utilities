@@ -52,7 +52,8 @@ classdef (SharedTestFixtures = { ...
                 '01.01.22', '',     'Cat2';...
                 '',         '',     'Cat1';...
                 '',         '',     'Cat2';...
-                'undefined','',     'Cat1'});
+                'undefined','',     'Cat1';...
+                '',         '',     'Cat2'});
             
             testCase.verifyEqual(actual,expected)
         end
@@ -72,6 +73,10 @@ classdef (SharedTestFixtures = { ...
                 2020           7          18           0           0           0
                  NaN         NaN         NaN         NaN         NaN         NaN
                  NaN         NaN         NaN         NaN         NaN         NaN
+                 Inf         Inf         Inf         Inf         Inf         Inf
+                -Inf        -Inf        -Inf        -Inf        -Inf        -Inf
+                 NaN         NaN         NaN         NaN         NaN         NaN
+                 NaN         NaN         NaN         NaN         NaN         NaN
                  NaN         NaN         NaN         NaN         NaN         NaN
                  NaN         NaN         NaN         NaN         NaN         NaN
                  NaN         NaN         NaN         NaN         NaN         NaN
@@ -81,7 +86,9 @@ classdef (SharedTestFixtures = { ...
                 2022           1           1           0           0           0
                 2022           1           1           0           0           0
                 2022           1           1           0           0           0
-                2022           1           1           0           0           0
+                1890           6           1           0           0           0
+                1900           1           1           0           0           0
+                1904           1           1           0           0           0
                 2022           1           1           0           0           0
                 2022           1           1           0           0           0]),[],3);
             
@@ -125,8 +132,10 @@ classdef (SharedTestFixtures = { ...
                     38010000   
                     31341      
                     NaN        
-                    Inf]),...
+                    Inf
+                    -Inf]),...
                 single([
+                    NaN
                     NaN
                     NaN
                     NaN
@@ -141,7 +150,8 @@ classdef (SharedTestFixtures = { ...
                     4    
                     65535
                     6    
-                    7]),...
+                    7
+                    8]),...
                 int8([
                     1
                     2
@@ -149,7 +159,8 @@ classdef (SharedTestFixtures = { ...
                     4
                     127
                     6
-                    7])
+                    0
+                    -8])
                 };
             actualClasses = cell(1,size(T,2));
             actualValues = cell(1,size(T,2));
@@ -195,7 +206,7 @@ classdef (SharedTestFixtures = { ...
             
             testCase.verifyEqual(actual,expected)
         end
-        function testEmptyFile(testCase)
+        function testErrorEmptyFile(testCase)
             % Define the file with the test data
             filename	= [testCase.RessourcePath,'tableFileEmptyFile.xlsx'];
             
@@ -203,12 +214,20 @@ classdef (SharedTestFixtures = { ...
             errorId     = 'Utilities:table:readTableFile:MissingHeader';
             testCase.verifyError(@() table.readTableFile(filename),errorId)
         end
-        function testInvalidFile(testCase)
+        function testErrorInvalidFile(testCase)
             % Define the file with the test data
             filename	= [testCase.RessourcePath,'tableFileInvalidFile.xlsx'];
             
             % Test error
             errorId     = 'Utilities:table:readTableFile:InvalidFile';
+            testCase.verifyError(@() table.readTableFile(filename),errorId)
+        end
+        function testErrorNonExcelDateWithoutFormatSpec(testCase)
+            % Define the file with the test data
+            filename	= [testCase.RessourcePath,'tableFileErrorNonExcelDateWithoutFormatSpec.xlsx'];
+            
+            % Test error
+            errorId     = 'Utilities:table:readTableFile:NonExcelDateWithoutFormatSpec';
             testCase.verifyError(@() table.readTableFile(filename),errorId)
         end
 	end
