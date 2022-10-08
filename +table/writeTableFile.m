@@ -1,4 +1,4 @@
-function writeTableFile(T,filename,varargin)
+function writeTableFile(T,filename)
 % writeTableFile  Write table to fully defined Excel table
 %   WRITETABLEFILE writes a table to an Excel table with four header rows that 
 %     define the column names, descriptions, units and data types of each
@@ -7,14 +7,10 @@ function writeTableFile(T,filename,varargin)
 %
 %   Syntax
 %     WRITETABLEFILE(T,filename)
-%     WRITETABLEFILE(__,Name,Value)
 %
 %   Description
 %     WRITETABLEFILE(T,filename)  Writes table T to an Excel file named
 %       filename.
-%     WRITETABLEFILE(__,Name,Value)  Add additional options specified by one or
-%       more Name,Value pair arguments. You can include any of the input
-%       arguments in previous syntaxes.
 %
 %   Example(s)
 %     WRITETABLEFILE(tbl,'~/table.xlsx)  Writes table tbl to the Excel file
@@ -41,10 +37,6 @@ function writeTableFile(T,filename,varargin)
 %
 %
 %   Name-Value Pair Arguments
-%     WriteNaNs - Write NaNs to the file
-%       false (default) | true
-%         If false, WRITETABLEFILE replaces all NaNs in the table with blanks
-%         (default). If true, NaNs are included in the file.
 %
 %
 %   See also TABLE.READTABLEFILE, TABLE
@@ -54,13 +46,6 @@ function writeTableFile(T,filename,varargin)
     
     import internal.stats.parseArgs
     import table.formatSpec
-    
-    
-    %   parse Name-Value pairs
-    optionName          = {'WriteNaNs'}; %   valid options (Name)
-    optionDefaultValue  = {false}; %   default value (Value)
-    [WriteNaNs...
-    ]	= parseArgs(optionName,optionDefaultValue,varargin{:}); %   parse function arguments
     
     % Validate inputs
     validateattributes(T,{'table'},{'nonempty'},mfilename,'T',1)
@@ -78,10 +63,17 @@ function writeTableFile(T,filename,varargin)
     fSpec   = arrayfun(@(col) formatSpec(class(T{1,col})),1:nCols);
     fS      = arrayfun(@(fs) fs.FormatSpec{1},fSpec,'un',0);
     
+    % Force all datetime columns to use this format string to ensure locale
+    % independence.
+    fS      = strrep(fS,'%D','%{yyyy-MM-dd HH:mm:ss}D');
+    
     % Error if fSpec contains non cellstr cells
-    assert(all(ismember(cellfun(@class,T{1,fSpec == 'cell'},'un',0),'char')),...
-        'Utilities:table:writeTableFile:NonCellstrCellColumn',...
-        'All cell columns are required to be cellstr.')
+    columnIsCell = fSpec == 'cell';
+    if any(columnIsCell)
+        assert(all(ismember(cellfun(@class,T{1,columnIsCell},'un',0),'char')),...
+            'Utilities:table:writeTableFile:NonCellstrCellColumn',...
+            'All cell columns are required to be cellstr.')
+    end
     
     % Generate header table
     headerC = cat(1,...
@@ -91,15 +83,49 @@ function writeTableFile(T,filename,varargin)
         fS);
     headerT = cell2table(headerC);
     
-    if WriteNaNs
-        error('Utilities:table:writeTableFile:TODO',...
-            'Writing NaNs is not implemented yet.')
-    else
-        % Warn about NaNs being replaced by blanks, if necessary
-        couldBeNaN = ismember(fSpec,{'double','single'});
-        if any(couldBeNaN) && any(reshape(isnan(T{:,couldBeNaN}),[],1))
-            warning('Utilities:table:writeTableFile:NaNsReplacedByBlanks',...
-                'All %u ''NaNs'' in the table were replaced by blanks.',sum(reshape(isnan(T{:,couldBeNaN}),[],1)))
+    % Deal with Inf, -Inf and missing values (NaN, NaT, <undefined>)    
+    isFloat = ismember(fSpec,{'double','single'}); % For NaN, Inf & -Inf
+    isDatetime = fSpec == 'datetime'; % For NaT, Inf & -Inf
+    isCategorical = fSpec == 'categorical'; % For <undefined>
+    
+    % Deal with float NaN, Inf & -Inf
+    if any(isFloat)
+        % Find NaN, Inf or -Inf
+        colInd          = find(isFloat);
+        isNaNOrInf      = arrayfun(@(col) isnan(T{:,col}) | isinf(T{:,col}),colInd,'un',0);
+        isNaNOrInf      = cat(2,isNaNOrInf{:});
+        colHasNaNOrInf  = any(isNaNOrInf,1);
+        
+        if any(colHasNaNOrInf)
+            % Convert columns that contain NaN, Inf or -Inf to cellstr. NaNs, Inf & -Inf are
+            % are converted to 'NaN', 'Inf' & '-Inf' respectively.
+            convertColToCellstrInd = colInd(colHasNaNOrInf);
+            T = convertFloatToCellstr(T,convertColToCellstrInd);
+        end
+    end
+    
+    % Deal with datetime NaT, Inf & -Inf
+    if any(isDatetime)
+        % Find NaT, Inf or -Inf
+        colInd          = find(isDatetime);
+        
+        % Convert all columns to cellstr, even if they don't contain NaT, Inf or -Inf.
+        % The datestr format is id 31 ('yyyy-mm-dd HH:MM:SS', see 'help datestr') in 
+        % order to be locale independent. NaT, Inf & -Inf are converted to 'NaT', 'Inf'
+        % & '-Inf'respectively.
+        T = convertDatetimeToCellstr(T,colInd);
+    end
+    
+    % Deal with categorical <undefined>
+    if any(isCategorical)
+        % Find <undefined>
+        colInd          = find(isCategorical);
+        isUndefined     = isundefined(T{:,colInd});
+        colHasUndefined = any(isUndefined,1);
+        
+        if any(colHasUndefined)
+            convertColToCellstrInd = colInd(colHasUndefined);
+            T = convertCategoricalToCellstr(T,convertColToCellstrInd);
         end
     end
     
@@ -113,5 +139,30 @@ function writeTableFile(T,filename,varargin)
     writetable(T,filename,...
         'FileType',             'spreadsheet',...
         'WriteVariableNames',   false,...
-        'Range',                rData{:}); 
+        'Range',                rData{:});
+    
+    function T = convertFloatToCellstr(T,columns)
+        for cc = 1:numel(columns)
+            ind = columns(cc);
+            T.(T.Properties.VariableNames{ind}) = strip(cellstr(num2str(T{:,ind})));
+        end
+    end
+    function T = convertDatetimeToCellstr(T,columns)
+        for cc = 1:numel(columns)
+            ind = columns(cc);
+            valIsInf = isinf(T{:,ind});
+            valIsNaT = isnat(T{:,ind});
+            asStr = repmat({''},size(T(:,ind)));
+            asStr(valIsInf) = strip(cellstr(num2str(subsref(datevec(T{valIsInf,ind}),struct('type',{'()'},'subs',{{':',1}})))));
+            asStr(valIsNaT) = repmat({'NaT'},sum(valIsNaT),1);
+            asStr(~valIsInf & ~valIsNaT) = cellstr(datestr(T{~valIsInf & ~valIsNaT,ind},31));
+            T.(T.Properties.VariableNames{ind}) = asStr;
+        end
+    end
+    function T = convertCategoricalToCellstr(T,columns)
+        for cc = 1:numel(columns)
+            ind = columns(cc);
+            T.(T.Properties.VariableNames{ind}) = cellstr(T{:,ind});
+        end
+    end
 end
