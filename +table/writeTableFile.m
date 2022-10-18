@@ -1,4 +1,4 @@
-function writeTableFile(T,filename)
+function writeTableFile(T,filename,varargin)
 % writeTableFile  Write table to fully defined Excel table
 %   WRITETABLEFILE writes a table to an Excel table with four header rows that 
 %     define the column names, descriptions, units and data types of each
@@ -7,14 +7,20 @@ function writeTableFile(T,filename)
 %
 %   Syntax
 %     WRITETABLEFILE(T,filename)
+%     WRITETABLEFILE(__,Name,Value)
 %
 %   Description
 %     WRITETABLEFILE(T,filename)  Writes table T to an Excel file named
 %       filename.
+%     WRITETABLEFILE(__,Name,Value)  Add additional options specified by one or 
+%       more Name,Value pair arguments.
 %
 %   Example(s)
 %     WRITETABLEFILE(tbl,'~/table.xlsx)  Writes table tbl to the Excel file
 %       '~/table.xlsx'.
+%     WRITETABLEFILE(tbl,'~/table.xlsx,'SchemaTable',sTbl)  Checks if the table
+%       tbl against a table schema sTbl. Only if tbl is valid, tbl is written to
+%       the Excel file '~/table.xlsx'.
 %
 %
 %   Input Arguments
@@ -37,20 +43,37 @@ function writeTableFile(T,filename)
 %
 %
 %   Name-Value Pair Arguments
+%     SchemaTable - Table schema table
+%       table
+%         A table schema table that fully defines a tables variable names,
+%         units, descriptions and data types. See <a href="matlab:help table.validateTableSchema">table.validateSchemaTable</a> for
+%         details.
 %
 %
-%   See also TABLE.READTABLEFILE, TABLE
+%   See also TABLE.READTABLEFILE, TABLE.VALIDATETABLESCHEMA, TABLE
 %
 %   Copyright (c) 2022-2022 David Clemens (dclemens@geomar.de)
 %
     
     import internal.stats.parseArgs
     import table.formatSpec
+    import table.validateTableAgainstSchema
     
     % Validate inputs
     validateattributes(T,{'table'},{'nonempty'},mfilename,'T',1)
     validateattributes(filename,{'char'},{'row','nonempty'},mfilename,'filename',2)
+    
+    % Parse Name-Value pairs
+    optionName          = {'SchemaTable'}; % valid options (Name)
+    optionDefaultValue  = {[]}; % default value (Value)
+    [schemaTable...
+        ] = parseArgs(optionName,optionDefaultValue,varargin{:}); % parse function arguments
 
+    % Validate table against schema table if necessary
+    if ~isempty(schemaTable)
+        T = validateTableAgainstSchema(T,DataKit.getAnalyticalSampleTableHeaderDefinition());
+    end
+    
     nHeaderRows = 4;
     nDataRows   = size(T,1);
     nCols       = size(T,2);
