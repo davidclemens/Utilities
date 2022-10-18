@@ -1,21 +1,21 @@
 function tf = validateTableDataTypes(T,expectedFormatSpec)
 % validateTableDataTypes  Test if table has expected data types
-%   VALIDATETABLEDATATYPES tests if table T contains all of the expected
-%     data types provided as format specifiers in expectedFormatSpec.
+%   VALIDATETABLEDATATYPES tests if table T contains the expected data types 
+%     provided as format specifiers in expectedFormatSpec.
 %
 %   Syntax
 %     tf = VALIDATETABLEDATATYPES(T,expectedFormatSpec)
 %
 %   Description
-%     tf = VALIDATETABLEDATATYPES(T,expectedFormatSpec)  Test if all columns in
+%     tf = VALIDATETABLEDATATYPES(T,expectedFormatSpec)  Test if the columns in
 %       table T are of a specific data type specified as format specifier in 
 %       expectedFormatSpec. This comparison is positional.
 %
 %   Example(s)
 %     tf = VALIDATETABLEDATATYPES(table(1,2,categorical(3),'VariableNames',{'a','b','c'}),{'%f','%n','%C'})
-%       returns tf = true.
+%       returns tf = [true,true,true].
 %     tf = VALIDATETABLEDATATYPES(table(1,2,3,'VariableNames',{'a','b','c'}),{'%f','%n','%C'})
-%       returns tf = false.
+%       returns tf = [true,true,false].
 %
 %   Input Arguments
 %     T - Input table
@@ -28,20 +28,20 @@ function tf = validateTableDataTypes(T,expectedFormatSpec)
 %         Is required to have a valid entry for each column in T. The comparison
 %         is positional, meaning that the first element in expectedFormatSpec
 %         tests the data type of the first column in T, etc.
-%         For details on the formatSpec class see run 'help table.formatSpec'
+%         See the <a href="matlab:help table.formatSpec">table.formatSpec</a> documentation for details.
 %
 %
 %   Output Arguments
-%     tf - test result
-%       logical scalar
-%         True if all columns of T match the data types specified as format
-%         specifiers in expectedFormatSpec.
+%     tf - validation result
+%       logical vector
+%         True for each column of T that matches the data types specified as 
+%         format specifiers in expectedFormatSpec.
 %
 %
 %   Name-Value Pair Arguments
 %
 %
-%   See also TABLE.FORMATSPEC, TABLE.VALIDATETABLEVARIABLENAMES
+%   See also TABLE.FORMATSPEC, TABLE.VALIDATETABLEVARIABLENAMES, TABLE.VALIDATETABLESCHEMA
 %
 %   Copyright (c) 2022-2022 David Clemens (dclemens@geomar.de)
 %
@@ -64,5 +64,5 @@ function tf = validateTableDataTypes(T,expectedFormatSpec)
     fSpec   = arrayfun(@(col) formatSpec(class(T{1,col})),1:nCols);
     
     % Compare to expectations
-    tf = all(arrayfun(@(fs,efs) any(ismember(fs.FormatSpec,efs)),fSpec,expectedFormatSpec));
+    tf = arrayfun(@(fs,efs) any(ismember(fs.FormatSpec,efs)),fSpec,expectedFormatSpec);
 end
