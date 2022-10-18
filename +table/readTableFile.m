@@ -95,7 +95,7 @@ function T = readTableFile(filename)
     validFormatSpec             = validFormatSpecT{:,'FormatSpec'};
     validFormatSpecClass        = validFormatSpecT{:,'Class'};
     validFormatSpecIsNumeric    = validFormatSpecT{:,'IsNumeric'};
-    validFormatSpecRE           = strcat({'^%(?<keepColumn>\*?)(?<formatSpec>{.+})?'},strip(validFormatSpec,'left','%'),{'$'});
+    validFormatSpecRE           = validFormatSpecT{:,'Regexp'};
     nValidFormatSpecs           = numel(validFormatSpecRE);
 
     [validClasses,indU1,indU2] 	= unique(validFormatSpecClass,'stable');
@@ -113,6 +113,11 @@ function T = readTableFile(filename)
     
     % Find columns to skip
     tokens = struct2table(cat(1,tokens{maskFormatSpec}),'AsArray',true);
+    if ~ismember('formatSpec',tokens.Properties.VariableNames)
+        % If there is no formatSpec column, add it. This is missing for all format
+        % specifiers except for datetime.
+        tokens{:,'formatSpec'}= {''};
+    end
     keepColumns = ~ismember(tokens{:,'keepColumn'},'*');
     formatSpec	= cellfun(@(s) regexprep(s,'[{}]',''),tokens{:,'formatSpec'},'un',0);
     

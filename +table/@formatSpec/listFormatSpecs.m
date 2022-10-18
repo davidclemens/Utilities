@@ -34,14 +34,26 @@ function T = listFormatSpecs()
 %   Copyright (c) 2022-2022 David Clemens (dclemens@geomar.de)
 %
     
+    enumMembers = enumeration('table.formatSpec');
+    
     % Define table contents as cell
     C = arrayfun(@(f) cat(2,...
         f.FormatSpec,...
         repmat(cellstr(f),size(f.FormatSpec)), ...
-        repmat({f.IsNumeric},size(f.FormatSpec)), ...
-        strcat({'^%(?<keepColumn>\*?)(?<formatSpec>{.+})?'},strip(f.FormatSpec,'left','%'),{'$'})), ...
-        enumeration('table.formatSpec'),'un',0);
-
+        repmat({f.IsNumeric},size(f.FormatSpec))), ...
+        enumMembers,'un',0);
+    
+    % Add regular expressions
+    for ii = 1:numel(enumMembers)
+        switch enumMembers(ii)
+            case 'datetime'
+                expression = strcat({'^%(?<keepColumn>\*?)(?<formatSpec>{.+})?'},strip(enumMembers(ii).FormatSpec,'left','%'),{'$'});
+            otherwise
+                expression = strcat({'^%(?<keepColumn>\*?)'},strip(enumMembers(ii).FormatSpec,'left','%'),{'$'});
+        end
+        C{ii} = cat(2,C{ii},expression);
+    end
+    
     % Convert to table
     T = cell2table(cat(1,C{:}),'VariableNames',{'FormatSpec','Class','IsNumeric','Regexp'});
 end
