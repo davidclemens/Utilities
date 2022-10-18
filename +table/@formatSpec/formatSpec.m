@@ -40,5 +40,6 @@ classdef formatSpec
     end
     methods (Static)
         T = listFormatSpecs()
+        tf = isValidFormatSpec(A)
     end
 end
