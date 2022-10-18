@@ -17,13 +17,13 @@ function tf = isValidFormatSpec(A)
 %
 %
 %   Input Arguments
-%     A - input array
+%     A - Input array
 %       char row vector | cellstr
 %         Input array specified as a char row vector or a cellstr.
 %
 %
 %   Output Arguments
-%     tf - validation result
+%     tf - Validation result
 %       logical array
 %         Validation result returned as a logical array in the same shape as the
 %         input A, with true elements indicating a valid formatSpec and false
@@ -48,7 +48,7 @@ function tf = isValidFormatSpec(A)
     end
     
     % Vectorize A
-    shape = size(A);
+    sz = size(A);
     A = A(:);
     
     % Validate format specifiers
@@ -60,5 +60,5 @@ function tf = isValidFormatSpec(A)
     end
     
     % Reshape to originial shape
-    tf = reshape(maskFormatSpec,shape);
+    tf = reshape(maskFormatSpec,sz);
 end
