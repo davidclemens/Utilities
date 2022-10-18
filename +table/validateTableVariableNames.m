@@ -34,7 +34,7 @@ function [tf,varargout] = validateTableVariableNames(T,expectedVariableNames)
 %
 %
 %   Output Arguments
-%     tf - test result
+%     tf - validation result
 %       logical scalar
 %         True if all entries in expectedVariableNames are variable names in
 %         table T.
@@ -47,7 +47,7 @@ function [tf,varargout] = validateTableVariableNames(T,expectedVariableNames)
 %   Name-Value Pair Arguments
 %
 %
-%   See also TABLE.VALIDATETABLEDATATYPES
+%   See also TABLE.VALIDATETABLEDATATYPES, TABLE.VALIDATETABLESCHEMA
 %
 %   Copyright (c) 2022-2022 David Clemens (dclemens@geomar.de)
 %
