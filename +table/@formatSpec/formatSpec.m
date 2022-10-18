@@ -8,7 +8,7 @@ classdef formatSpec
     %
     
     enumeration
-        % class         Id      FromatSpec          IsNumeric   Constructor
+        % class         Id      FormatSpec          IsNumeric   Constructor
         double         	(0,     {'%f';'%f64';'%n'}, true,       @double)
         single          (1,     {'%f32'},           true,       @single)
         int8            (2,    	{'%d8'},            true,       @int8)
