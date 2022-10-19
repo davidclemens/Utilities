@@ -46,7 +46,7 @@ function T = listFormatSpecs()
     % Add regular expressions
     for ii = 1:numel(enumMembers)
         switch enumMembers(ii)
-            case 'datetime'
+            case {'datetime','duration'}
                 expression = strcat({'^%(?<keepColumn>\*?)(?<formatSpec>{.+})?'},strip(enumMembers(ii).FormatSpec,'left','%'),{'$'});
             otherwise
                 expression = strcat({'^%(?<keepColumn>\*?)'},strip(enumMembers(ii).FormatSpec,'left','%'),{'$'});

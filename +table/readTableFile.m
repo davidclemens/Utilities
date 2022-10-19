@@ -115,7 +115,7 @@ function T = readTableFile(filename)
     tokens = struct2table(cat(1,tokens{maskFormatSpec}),'AsArray',true);
     if ~ismember('formatSpec',tokens.Properties.VariableNames)
         % If there is no formatSpec column, add it. This is missing for all format
-        % specifiers except for datetime.
+        % specifiers except for datetime and duration.
         tokens{:,'formatSpec'}= {''};
     end
     keepColumns = ~ismember(tokens{:,'keepColumn'},'*');
@@ -173,6 +173,8 @@ function T = readTableFile(filename)
                     classCell{cl} = repmat({''},nRows,1);
                 case 'datetime'
                     classCell{cl} = NaT(nRows,1);
+                case 'duration'
+                    classCell{cl} = duration(NaN(nRows,3));
                 case 'categorical'
                     classCell{cl} = categorical(NaN(nRows,1));
                 otherwise
@@ -253,7 +255,7 @@ function T = readTableFile(filename)
                     case 'datetime'
                         valIsChar = cellfun(@ischar,rawIn);
                         valIsInf = valIsChar;
-                        valIsInf(valIsChar) = ~cellfun(@isempty,regexp(rawIn(valIsChar),'^\-?Inf$'));
+                        valIsInf(valIsChar) = ~cellfun(@isempty,regexp(rawIn(valIsChar),'^\-?Inf$','forcecelloutput'));
                         valIsNonInfChar = valIsChar & ~valIsInf;
                         valIsExcelNumeric = ~valIsChar;
                         
@@ -279,6 +281,36 @@ function T = readTableFile(filename)
                             % Excel 1900 date system is used
                             data(valIsExcelNumeric) = datetime(cat(1,rawIn{valIsExcelNumeric}),'ConvertFrom','excel');
                         end
+                    case 'duration'
+                        valIsChar = cellfun(@ischar,rawIn);
+                        valIsInf = valIsChar;
+                        valIsInf(valIsChar) = ~cellfun(@isempty,regexp(rawIn(valIsChar),'^\-?Inf$','forcecelloutput'));
+                        valIsNonInfChar = valIsChar & ~valIsInf;
+                        valIsExcelNumeric = ~valIsChar;
+                        
+                        data = T{~maskNoData(:,col),col}; % Initialize
+                        if any(valIsNonInfChar)
+                            % If rawIn contains chars and the column is a duration, the row(s) containing
+                            % chars are not an Excel date. Import them accorting to formatSpec.
+                            
+                            % Non-Excel dates only work with non-empty formatSpec
+                            assert(~isempty(formatSpec{col}),...
+                                'Utilities:table:readTableFile:interpretDurationFormatSpecifierAndData:NonNumericDurationWithoutFormatSpec',...
+                                'Column %u has non-numeric duration without a formatSpec being specified. Please specify a formatSpec in the 4th header row as ''%%{fmt}T''.',col)
+                            
+                            % Process the cellstr data
+                            [func,durationComponents] = interpretDurationFormatSpecifierAndData(formatSpec{col},rawIn(valIsNonInfChar));
+                            
+                            % Convert numbers to duration
+                            data(valIsNonInfChar) = func(durationComponents);
+                        end
+                        if any(valIsInf)
+                            data(valIsInf) = duration(repmat(str2double(rawIn(valIsInf)),1,3));
+                        end
+                        if any(valIsExcelNumeric)
+                            % A duration in Excel is given in fractional days
+                            data(valIsExcelNumeric) = days(cat(1,rawIn{valIsExcelNumeric}));
+                        end
                     case 'categorical'
                         % Replace '<undefined>' with '' to be converted to <undefined>
                         isChar          = cellfun(@ischar,rawIn);
@@ -293,7 +325,7 @@ function T = readTableFile(filename)
                             data = categorical(rawIn);
                         end
                     otherwise
-                        error('Utilities:table:readTableFile:TODO',...
+                        error('Utilities:table:readTableFile:invalidFormatSpecifier',...
                           'TODO: ''%s'' needs implementing',columnClass)
                 end
             end
@@ -316,5 +348,89 @@ function T = readTableFile(filename)
                     rethrow(ME)
             end
         end
+    end
+end
+
+function [func,dataComponents] = interpretDurationFormatSpecifierAndData(fmt,dataStr)
+
+    nDigits = @(x) 10.^(floor(log10(max(1,abs(x)))) + 1);
+    
+    % Test if the format is a single number duration
+    isSingleNumberDurationFormat = ~cellfun(@isempty,regexp(fmt,'^[smhdy]$','forceCellOutput'));
+    isDigitalTimerDurationFormat = strncmp(fmt,'dd:hh:mm:ss',numel('dd:hh:mm:ss')) || ...
+                                   strncmp(fmt,'hh:mm:ss',numel('hh:mm:ss')) || ...
+                                   strncmp(fmt,'mm:ss',numel('mm:ss')) || ...
+                                   strncmp(fmt,'hh:mm',numel('hh:mm'));
+    if isSingleNumberDurationFormat
+        % Single number with time unit
+        switch fmt
+            case 'y'
+                func = @years;
+            case 'd'
+                func = @days;
+            case 'h'
+                func = @hours;
+            case 'm'
+                func = @minutes;
+            case 's'
+                func = @seconds;
+            otherwise
+                error('Utilities:table:readTableFile:interpretDurationFormatSpecifierAndData:invalidSingleNumberDurationFormatSpecifier',...
+                    ['The duration format specifier of type single number ''%s'' is invalid.\n',...
+                     'Valid single number duration format specifiers are:\n',...
+                     '\t''y''\n\t''d''\n\t''h''\n\t''m''\n\t''s'''],...
+                     fmt)
+        end
+
+        % Convert raw data duration components to numbers
+        dataComponents = cellfun(@str2double,dataStr);
+
+    elseif isDigitalTimerDurationFormat
+        % Digital timer formats
+        timerComponents = strsplit(fmt,'.');
+        hasFractionalSeconds = numel(timerComponents) == 2;
+        if hasFractionalSeconds
+            expressionFractionalSeconds = ['\.(?<fractionalSeconds>\d{',num2str(numel(timerComponents{2})),'})'];
+        else
+            expressionFractionalSeconds = '';
+        end
+        switch timerComponents{1}
+            case 'dd:hh:mm:ss'
+                expression = '^(?<days>\-?\d+):(?<hours>\-?\d{2}):(?<minutes>\-?\d{2}):(?<seconds>\-?\d{2})';
+                func1 = @(x) days(x(:,1)) + hours(x(:,2)) + minutes(x(:,3)) + seconds(x(:,4));
+            case 'hh:mm:ss'
+                expression = '^(?<hours>\-?\d+):(?<minutes>\-?\d{2}):(?<seconds>\-?\d{2})';
+                func1 = @(x) hours(x(:,1)) + minutes(x(:,2)) + seconds(x(:,3));
+            case 'mm:ss'
+                expression = '^(?<minutes>\-?\d+):(?<seconds>\-?\d{2})';
+                func1 = @(x) minutes(x(:,1)) + seconds(x(:,2));
+            case 'hh:mm'
+                expression = '^(?<hours>\-?\d+):(?<minutes>\-?\d{2})';
+                func1 = @(x) hours(x(:,1)) + minutes(x(:,2));
+            otherwise
+                error('Utilities:table:readTableFile:interpretDurationFormatSpecifierAndData:invalidDigitalTimerDurationFormatSpecifier',...
+                    ['The duration format specifier of type digital timer ''%s'' is invalid.\n',...
+                     'Valid digital timer duration format specifiers are:\n',...
+                     '\t''dd:hh:mm:ss''\n\t''hh:mm:ss''\n\t''mm:ss''\n\t''hh:mm''\nFor any of the first three formats, up to nine S characters can be appended to indicate fractional second digits, such as ''hh:mm:ss.SSSS''.'],...
+                     fmt)
+        end
+        if hasFractionalSeconds && strcmp(timerComponents{1}(end - 1:end),'ss')
+            expression = cat(2,expression,expressionFractionalSeconds);
+            func = @(x) func1(x(:,1:end - 1)) + seconds(x(:,end)./nDigits(x(:,end)));
+        else
+            func = @(x) func1(x);
+        end
+
+        % Convert raw data duration components to numbers
+        tokens = regexp(dataStr,expression,'names','forceCellOutput');
+        dataComponents = cellfun(@str2double,struct2cell(cat(1,tokens{:})))';
+    else
+        error('Utilities:table:readTableFile:interpretDurationFormatSpecifierAndData:invalidDurationFormatSpecifier',...
+            ['The duration format specifier ''%s'' is invalid.\n',...
+             'Valid single number duration format specifiers are:\n',...
+             '\t''y''\n\t''d''\n\t''h''\n\t''m''\n\t''s''\n',...
+             'Valid digital timer duration format specifiers are:\n',...
+             '\t''dd:hh:mm:ss''\n\t''hh:mm:ss''\n\t''mm:ss''\n\t''hh:mm''\nFor any of the first three formats, up to nine S characters can be appended to indicate fractional second digits, such as ''hh:mm:ss.SSSS''.'],...
+             fmt)
     end
 end
