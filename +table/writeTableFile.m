@@ -71,7 +71,7 @@ function writeTableFile(T,filename,varargin)
 
     % Validate table against schema table if necessary
     if ~isempty(schemaTable)
-        T = validateTableAgainstSchema(T,DataKit.getAnalyticalSampleTableHeaderDefinition());
+        T = validateTableAgainstSchema(T,schemaTable);
     end
     
     nHeaderRows = 4;
