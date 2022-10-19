@@ -23,6 +23,7 @@ classdef formatSpec
         datetime        (11,   	{'%D'},             false,      @datetime)
         categorical     (12,   	{'%C'},             false,      @categorical)
         cell            (13,   	{'%s'},             false,      @cell)
+        duration        (14,   	{'%T'},             false,      @duration)
     end
     properties (SetAccess = 'immutable')
         Id uint8
