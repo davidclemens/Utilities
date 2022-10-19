@@ -104,11 +104,15 @@ function writeTableFile(T,filename,varargin)
     end
     
     % Generate header table
-    headerC = cat(1,...
-        T.Properties.VariableNames,...
-        T.Properties.VariableUnits,...
-        T.Properties.VariableDescriptions,...
-        fS);
+    headerC = repmat({''},nHeaderRows,nCols);
+    headerC(1,:) = T.Properties.VariableNames;
+    if ~isempty(T.Properties.VariableUnits)
+        headerC(2,:) = T.Properties.VariableUnits;
+    end
+    if ~isempty(T.Properties.VariableDescriptions)
+        headerC(3,:) = T.Properties.VariableDescriptions;
+    end
+    headerC(4,:) = fS;
     headerT = cell2table(headerC);
     
     % Deal with Inf, -Inf and missing values (NaN, NaT, <undefined>)    
