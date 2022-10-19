@@ -280,6 +280,19 @@ classdef (SharedTestFixtures = { ...
             
             testCase.verifyEqual(actual,expected)
         end
+        function testMixedDataTypeTable(testCase)
+            % Define the file with the test data
+            filename	= [testCase.RessourcePath,'tableFileMixedDataTypeTable.xlsx'];
+            
+            % Read it
+            T           = table.readTableFile(filename);
+            
+            % Only compare the actual data. Metadata is tested elsewhere
+            actual      = table2cell(T);
+            expected    = {datetime(2022,1,1,0,0,0),1,duration(3,0,0),categorical({'categoryA'}),'text data',uint8(16)};
+            
+            testCase.verifyEqual(actual,expected)
+        end
         function testErrorEmptyFile(testCase)
             % Define the file with the test data
             filename	= [testCase.RessourcePath,'tableFileEmptyFile.xlsx'];
