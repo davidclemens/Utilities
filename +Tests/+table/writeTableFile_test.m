@@ -52,6 +52,15 @@ classdef (SharedTestFixtures = { ...
 
             testCase.verifyEqual(actual,expected)            
         end
+        function testReadWriteIntegrationDuration(testCase)
+            % Define the file with the test data
+            readFilename	= 'tableFileDuration.xlsx';
+            
+            % Get actual and expected tables
+            [actual,expected] = testReadWriteIntegration(testCase,readFilename);
+
+            testCase.verifyEqual(actual,expected)            
+        end
         function testReadWriteIntegrationLogical(testCase)
             % Define the file with the test data
             readFilename	= 'tableFileLogical.xlsx';
