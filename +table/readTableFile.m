@@ -60,6 +60,8 @@ function T = readTableFile(filename)
 %   Copyright (c) 2022-2022 David Clemens (dclemens@geomar.de)
 %
 
+    import table.formatSpec.isValidFormatSpec
+    
     % TODO: Validate header rows.
     
     % Check that file exists
@@ -103,6 +105,12 @@ function T = readTableFile(filename)
     nValidClasses               = numel(validClasses);
     
     % Check formatSpec input
+    formatSpecIsValid   = isValidFormatSpec(VarFormat);
+    assert(all(formatSpecIsValid),...
+        'Utilities:table:readTableFile:invalidFormatSpec',...
+        '''%s'' is not a valid formatSpec in column %u of file:\n\t%s\nValid formatSpecs are:\n\t%s',VarFormat{find(~formatSpecIsValid,1)},find(~formatSpecIsValid,1),filename,strjoin(validFormatSpec,'\n\t'))
+    
+    % Find formatSpec attributes
     nColumns            = size(rawWithHeader,2);
     maskFormatSpec     	= false(nValidFormatSpecs,nColumns);
     tokens              = cell(nValidFormatSpecs,nColumns);
@@ -110,16 +118,19 @@ function T = readTableFile(filename)
         [tmp1,tokens(fs,:)]  	= regexp(VarFormat,validFormatSpecRE{fs},'start','names','forceCellOutput');
         maskFormatSpec(fs,:)  	= ~cellfun(@isempty,tmp1);
     end
-    
-    % Find columns to skip
-    tokens = struct2table(cat(1,tokens{maskFormatSpec}),'AsArray',true);
-    if ~ismember('formatSpec',tokens.Properties.VariableNames)
-        % If there is no formatSpec column, add it. This is missing for all format
-        % specifiers except for datetime and duration.
-        tokens{:,'formatSpec'}= {''};
+    [formatSpecInd,~] = find(maskFormatSpec);
+    fSAttributes = table;
+    for col = 1:nColumns
+        tmp = tokens{formatSpecInd(col),col};
+        if ~ismember('formatSpec',fieldnames(tmp))
+            % If there is no formatSpec column, add it. This is missing for all format
+            % specifiers except for datetime and duration.
+            tmp.formatSpec = '';
+        end
+        fSAttributes = cat(1,fSAttributes,struct2table(tmp,'AsArray',true));
     end
-    keepColumns = ~ismember(tokens{:,'keepColumn'},'*');
-    formatSpec	= cellfun(@(s) regexprep(s,'[{}]',''),tokens{:,'formatSpec'},'un',0);
+    keepColumns = ~ismember(fSAttributes{:,'keepColumn'},'*');
+    formatSpec	= cellfun(@(s) regexprep(s,'[{}]',''),fSAttributes{:,'formatSpec'},'un',0);
     
     % Only keep relevant columns
     if ~all(keepColumns)
@@ -309,7 +320,29 @@ function T = readTableFile(filename)
                         end
                         if any(valIsExcelNumeric)
                             % A duration in Excel is given in fractional days
-                            data(valIsExcelNumeric) = days(cat(1,rawIn{valIsExcelNumeric}));
+                            if ~isempty(formatSpec{col})
+                                switch formatSpec{col}
+                                    case 'y'
+                                        func = @years;
+                                    case 'd'
+                                        func = @days;
+                                    case 'h'
+                                        func = @hours;
+                                    case 'm'
+                                        func = @minutes;
+                                    case 's'
+                                        func = @seconds;
+                                    otherwise
+                                        error('Utilities:table:readTableFile:interpretDurationFormatSpecifierAndData:invalidSingleNumberDurationFormatSpecifier',...
+                                            ['The duration format specifier of type single number ''%s'' is invalid.\n',...
+                                             'Valid single number duration format specifiers are:\n',...
+                                             '\t''y''\n\t''d''\n\t''h''\n\t''m''\n\t''s'''],...
+                                             formatSpec{col})
+                                end
+                                data(valIsExcelNumeric) = func(cat(1,rawIn{valIsExcelNumeric}));
+                            else
+                                data(valIsExcelNumeric) = days(cat(1,rawIn{valIsExcelNumeric}));
+                            end
                         end
                     case 'categorical'
                         % Replace '<undefined>' with '' to be converted to <undefined>
