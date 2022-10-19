@@ -98,7 +98,7 @@ function T = readCalkulateResultFile(file)
     T.TitrationStart.Format = 'dd.MM.yyyy HH:mm:ss';
     
     % Modify duration
-    tokens = regexp(T{:,'TitrationDuration'},'^(\d+)\sdays\s(\d{2}):(\d{2}):(\d{2})$','tokens');
+    tokens = regexp(T{:,'TitrationDuration'},'^(\d+)\sdays\s(\d{2}):(\d{2}):(\d{2})$','tokens','forceCellOutput');
     tokens = cat(1,tokens{:});
     tokens = str2double(cat(1,tokens{:}));
     T.TitrationDuration = duration(24.*tokens(:,1) + tokens(:,2),tokens(:,3),tokens(:,4));
@@ -108,7 +108,7 @@ function T = readCalkulateResultFile(file)
     T.ReferenceGood = str2logical(T{:,'ReferenceGood'});
     
     % Modify status
-    tokens = regexp(cellstr(T{:,'Status'}),'\[[\d;]+m([A-Za-z]+)','tokens');
+    tokens = regexp(cellstr(T{:,'Status'}),'\[[\d;]+m([A-Za-z]+)','tokens','forceCellOutput');
     tokens = cat(1,tokens{:});
     T.Status = categorical(cat(1,tokens{:}));
     

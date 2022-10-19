@@ -56,7 +56,7 @@ function tf = isValidFormatSpec(A)
     nFormatSpecs    = size(validFormatSpec,1);
     maskFormatSpec	= false(numel(A),1);
     for fs = 1:nFormatSpecs
-        maskFormatSpec  	= maskFormatSpec | ~cellfun(@isempty,regexp(A,validFormatSpec{fs,'Regexp'}));
+        maskFormatSpec  	= maskFormatSpec | ~cellfun(@isempty,regexp(A,validFormatSpec{fs,'Regexp'},'forceCellOutput'));
     end
     
     % Reshape to originial shape
