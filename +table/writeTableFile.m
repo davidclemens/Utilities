@@ -1,4 +1,4 @@
-function writeTableFile(T,filename)
+function writeTableFile(T,filename,varargin)
 % writeTableFile  Write table to fully defined Excel table
 %   WRITETABLEFILE writes a table to an Excel table with four header rows that 
 %     define the column names, descriptions, units and data types of each
@@ -7,14 +7,20 @@ function writeTableFile(T,filename)
 %
 %   Syntax
 %     WRITETABLEFILE(T,filename)
+%     WRITETABLEFILE(__,Name,Value)
 %
 %   Description
 %     WRITETABLEFILE(T,filename)  Writes table T to an Excel file named
 %       filename.
+%     WRITETABLEFILE(__,Name,Value)  Add additional options specified by one or 
+%       more Name,Value pair arguments.
 %
 %   Example(s)
 %     WRITETABLEFILE(tbl,'~/table.xlsx)  Writes table tbl to the Excel file
 %       '~/table.xlsx'.
+%     WRITETABLEFILE(tbl,'~/table.xlsx,'SchemaTable',sTbl)  Checks if the table
+%       tbl against a table schema sTbl. Only if tbl is valid, tbl is written to
+%       the Excel file '~/table.xlsx'.
 %
 %
 %   Input Arguments
@@ -37,20 +43,37 @@ function writeTableFile(T,filename)
 %
 %
 %   Name-Value Pair Arguments
+%     SchemaTable - Table schema table
+%       table
+%         A table schema table that fully defines a tables variable names,
+%         units, descriptions and data types. See <a href="matlab:help table.validateTableSchema">table.validateSchemaTable</a> for
+%         details.
 %
 %
-%   See also TABLE.READTABLEFILE, TABLE
+%   See also TABLE.READTABLEFILE, TABLE.VALIDATETABLESCHEMA, TABLE
 %
 %   Copyright (c) 2022-2022 David Clemens (dclemens@geomar.de)
 %
     
     import internal.stats.parseArgs
     import table.formatSpec
+    import table.validateTableAgainstSchema
     
     % Validate inputs
     validateattributes(T,{'table'},{'nonempty'},mfilename,'T',1)
     validateattributes(filename,{'char'},{'row','nonempty'},mfilename,'filename',2)
+    
+    % Parse Name-Value pairs
+    optionName          = {'SchemaTable'}; % valid options (Name)
+    optionDefaultValue  = {[]}; % default value (Value)
+    [schemaTable...
+        ] = parseArgs(optionName,optionDefaultValue,varargin{:}); % parse function arguments
 
+    % Validate table against schema table if necessary
+    if ~isempty(schemaTable)
+        T = validateTableAgainstSchema(T,schemaTable);
+    end
+    
     nHeaderRows = 4;
     nDataRows   = size(T,1);
     nCols       = size(T,2);
@@ -65,7 +88,12 @@ function writeTableFile(T,filename)
     
     % Force all datetime columns to use this format string to ensure locale
     % independence.
-    fS      = strrep(fS,'%D','%{yyyy-MM-dd HH:mm:ss}D');
+    fSDatetime = 'yyyy-MM-dd HH:mm:ss'; % Don't change this!
+    fS      = strrep(fS,'%D',['%{',fSDatetime,'}D']);
+    % Force all duration columns to use this format string to minimize information
+    % loss.
+    fSDuration = 'dd:hh:mm:ss.SSS';
+    fS      = strrep(fS,'%T',['%{',fSDuration,'}T']);
     
     % Error if fSpec contains non cellstr cells
     columnIsCell = fSpec == 'cell';
@@ -76,16 +104,21 @@ function writeTableFile(T,filename)
     end
     
     % Generate header table
-    headerC = cat(1,...
-        T.Properties.VariableNames,...
-        T.Properties.VariableUnits,...
-        T.Properties.VariableDescriptions,...
-        fS);
+    headerC = repmat({''},nHeaderRows,nCols);
+    headerC(1,:) = T.Properties.VariableNames;
+    if ~isempty(T.Properties.VariableUnits)
+        headerC(2,:) = T.Properties.VariableUnits;
+    end
+    if ~isempty(T.Properties.VariableDescriptions)
+        headerC(3,:) = T.Properties.VariableDescriptions;
+    end
+    headerC(4,:) = fS;
     headerT = cell2table(headerC);
     
     % Deal with Inf, -Inf and missing values (NaN, NaT, <undefined>)    
     isFloat = ismember(fSpec,{'double','single'}); % For NaN, Inf & -Inf
     isDatetime = fSpec == 'datetime'; % For NaT, Inf & -Inf
+    isDuration = fSpec == 'duration'; % For NaT, Inf & -Inf
     isCategorical = fSpec == 'categorical'; % For <undefined>
     
     % Deal with float NaN, Inf & -Inf
@@ -114,6 +147,18 @@ function writeTableFile(T,filename)
         % order to be locale independent. NaT, Inf & -Inf are converted to 'NaT', 'Inf'
         % & '-Inf'respectively.
         T = convertDatetimeToCellstr(T,colInd);
+    end
+    
+    % Deal with duration NaT, Inf & -Inf
+    if any(isDuration)
+        % Find NaT, Inf or -Inf
+        colInd          = find(isDuration);
+        
+        % Convert all columns to cellstr, even if they don't contain NaT, Inf or -Inf.
+        % The duration format is 'dd:hh:mm:ss.SSS' (see 'help duration') in order to
+        % retain as much information as possible. NaT, Inf & -Inf are converted to
+        % 'NaT', 'Inf' & '-Inf'respectively.
+        T = convertDurationToCellstr(T,colInd,fSDuration);
     end
     
     % Deal with categorical <undefined>
@@ -156,6 +201,24 @@ function writeTableFile(T,filename)
             asStr(valIsInf) = strip(cellstr(num2str(subsref(datevec(T{valIsInf,ind}),struct('type',{'()'},'subs',{{':',1}})))));
             asStr(valIsNaT) = repmat({'NaT'},sum(valIsNaT),1);
             asStr(~valIsInf & ~valIsNaT) = cellstr(datestr(T{~valIsInf & ~valIsNaT,ind},31));
+            T.(T.Properties.VariableNames{ind}) = asStr;
+        end
+    end
+    function T = convertDurationToCellstr(T,columns,formatSpec)
+        for cc = 1:numel(columns)
+            ind = columns(cc);
+            valIsInf = isinf(T{:,ind});
+            valIsNaN = isnan(T{:,ind});
+            asStr = repmat({''},size(T(:,ind)));
+            asStr(valIsInf) = strip(cellstr(num2str(subsref(datevec(T{valIsInf,ind}),struct('type',{'()'},'subs',{{':',1}})))));
+            asStr(valIsNaN) = repmat({'NaN'},sum(valIsNaN),1);
+            dataOut = T{~valIsInf & ~valIsNaN,ind};
+            dataOut.Format = formatSpec;
+            dataStr = cellstr(dataOut);
+            
+            % As the conversion from duration to cellstr ommits leading day zeros, those
+            % cellstrings have to be padded with '00:'.            
+            asStr(~valIsInf & ~valIsNaN) = pad(pad(cellstr(dataStr),numel(formatSpec) - 2,'left',':'),numel(formatSpec),'left','0');
             T.(T.Properties.VariableNames{ind}) = asStr;
         end
     end

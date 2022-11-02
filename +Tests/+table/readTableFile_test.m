@@ -94,6 +94,80 @@ classdef (SharedTestFixtures = { ...
             
             testCase.verifyEqual(actual,expected)
         end
+        function testDatetime1Line(testCase)
+            % Define the file with the test data
+            filename	= [testCase.RessourcePath,'tableFileDatetime1L.xlsx'];
+            
+            % Read it
+            T           = table.readTableFile(filename);
+            
+            % Only compare the actual data. Metadata is tested elsewhere
+            actual      = T{:,:};
+            expected    = reshape(datetime([
+                2022           1           1           0           0           0
+                 NaN         NaN         NaN         NaN         NaN         NaN
+                2022           1           1           0           0           0]),[],3);
+            
+            testCase.verifyEqual(actual,expected)
+        end
+        function testDuration(testCase)
+            % Define the file with the test data
+            filename	= [testCase.RessourcePath,'tableFileDuration.xlsx'];
+            
+            % Read it
+            T           = table.readTableFile(filename);
+            
+            % Only compare the actual data. Metadata is tested elsewhere
+            actual      = T{:,:};
+            expected    = reshape(duration([
+                NaN         NaN         NaN
+                Inf         Inf         Inf
+               -Inf        -Inf        -Inf
+                  0           0           0
+                 10*24        0           0
+               -500*24        0           0
+                 10          55           0
+                NaN         NaN         NaN
+                NaN         NaN         NaN
+                NaN         NaN         NaN
+                NaN         NaN         NaN
+                NaN         NaN         NaN
+                NaN         NaN         NaN
+                NaN         NaN         NaN
+                 11          02          59.539
+                NaN         NaN         NaN
+                NaN         NaN         NaN
+                Inf         Inf         Inf
+               -Inf        -Inf        -Inf
+                 11          02          59.539
+                 11          02          59.539
+                  0           0          25
+                NaN         NaN         NaN
+                NaN         NaN         NaN
+                Inf         Inf         Inf
+               -Inf        -Inf        -Inf
+                  0           0          25
+                  0           0          25]),[],4);
+            
+            testCase.verifyEqual(actual,expected)
+        end
+        function testDuration1Line(testCase)
+            % Define the file with the test data
+            filename	= [testCase.RessourcePath,'tableFileDuration1L.xlsx'];
+            
+            % Read it
+            T           = table.readTableFile(filename);
+            
+            % Only compare the actual data. Metadata is tested elsewhere
+            actual      = T{:,:};
+            expected    = reshape(duration([
+                NaN         NaN         NaN
+                NaN         NaN         NaN
+                 11          02          59.539
+                  0           0          25]),[],4);
+            
+            testCase.verifyEqual(actual,expected)
+        end
         function testCellstr(testCase)
             % Define the file with the test data
             filename	= [testCase.RessourcePath,'tableFileCellstr.xlsx'];
@@ -203,6 +277,19 @@ classdef (SharedTestFixtures = { ...
             % Only compare the actual data. Metadata is tested elsewhere
             actual      = T{:,:};
             expected    = cell(0,3);
+            
+            testCase.verifyEqual(actual,expected)
+        end
+        function testMixedDataTypeTable(testCase)
+            % Define the file with the test data
+            filename	= [testCase.RessourcePath,'tableFileMixedDataTypeTable.xlsx'];
+            
+            % Read it
+            T           = table.readTableFile(filename);
+            
+            % Only compare the actual data. Metadata is tested elsewhere
+            actual      = table2cell(T);
+            expected    = {datetime(2022,1,1,0,0,0),1,duration(3,0,0),categorical({'categoryA'}),'text data',uint8(16)};
             
             testCase.verifyEqual(actual,expected)
         end

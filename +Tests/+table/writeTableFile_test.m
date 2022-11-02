@@ -52,6 +52,15 @@ classdef (SharedTestFixtures = { ...
 
             testCase.verifyEqual(actual,expected)            
         end
+        function testReadWriteIntegrationDuration(testCase)
+            % Define the file with the test data
+            readFilename	= 'tableFileDuration.xlsx';
+            
+            % Get actual and expected tables
+            [actual,expected] = testReadWriteIntegration(testCase,readFilename);
+
+            testCase.verifyEqual(actual,expected)            
+        end
         function testReadWriteIntegrationLogical(testCase)
             % Define the file with the test data
             readFilename	= 'tableFileLogical.xlsx';
@@ -69,6 +78,62 @@ classdef (SharedTestFixtures = { ...
             [actual,expected] = testReadWriteIntegration(testCase,readFilename);
 
             testCase.verifyEqual(actual,expected)            
+        end
+        function testDescriptions(testCase)
+            filename = 'testDescriptions.xlsx';
+            % Define the temporary write file
+            writeFilename   = [testCase.WriteFolder,'/',filename];
+            
+            expected = {'A','B','C'};
+            T = table(ones(3,1),ones(3,1),ones(3,1));
+            T.Properties.VariableDescriptions = expected;
+            table.writeTableFile(T,writeFilename)
+            Tread = table.readTableFile(writeFilename);
+            actual = Tread.Properties.VariableDescriptions;
+            
+            testCase.verifyEqual(actual,expected)
+        end
+        function testUnits(testCase)
+            filename = 'testUnits.xlsx';
+            % Define the temporary write file
+            writeFilename   = [testCase.WriteFolder,'/',filename];
+            
+            expected = {'A','B','C'};
+            T = table(ones(3,1),ones(3,1),ones(3,1));
+            T.Properties.VariableUnits = expected;
+            table.writeTableFile(T,writeFilename)
+            Tread = table.readTableFile(writeFilename);
+            actual = Tread.Properties.VariableUnits;
+            
+            testCase.verifyEqual(actual,expected)
+        end
+        function testEmptyDescriptions(testCase)
+            filename = 'testEmptyDescriptions.xlsx';
+            % Define the temporary write file
+            writeFilename   = [testCase.WriteFolder,'/',filename];
+            
+            T = table(ones(3,1),ones(3,1),ones(3,1));
+            
+            expected = repmat({''},1,size(T,2));
+            table.writeTableFile(T,writeFilename)
+            Tread = table.readTableFile(writeFilename);
+            actual = Tread.Properties.VariableDescriptions;
+            
+            testCase.verifyEqual(actual,expected)
+        end
+        function testEmptyUnits(testCase)
+            filename = 'testEmptyUnits.xlsx';
+            % Define the temporary write file
+            writeFilename   = [testCase.WriteFolder,'/',filename];
+            
+            T = table(ones(3,1),ones(3,1),ones(3,1));
+            
+            expected = repmat({''},1,size(T,2));
+            table.writeTableFile(T,writeFilename)
+            Tread = table.readTableFile(writeFilename);
+            actual = Tread.Properties.VariableUnits;
+            
+            testCase.verifyEqual(actual,expected)
         end
 	end
 end
