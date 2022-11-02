@@ -1,5 +1,5 @@
 function varargout = arrayhom(varargin)
-% arrayhom  Homogenizes arrays with varying shapes.
+% arrayhom  Homogenizes arrays with varying shapes
 %   ARRAYHOM homogenizes multiple arrays with varying input shapes to
 %   column vectors if possible.
 %
@@ -8,9 +8,9 @@ function varargout = arrayhom(varargin)
 %
 %   Description
 %     [out1,...,outN] = ARRAYHOM(in1,...,inN) homogenizes inputs in1 to
-%     inN. Scalar inputs are repeated to match the shape of non-scalar
-%     inputs. All non-scalar inputs have to have the same shape. All
-%     outputs are column vectors.
+%       inN. Scalar inputs are repeated to match the shape of non-scalar
+%       inputs. All non-scalar inputs have to have the same shape. All
+%       outputs are column vectors.
 %
 %   Example(s)
 %     [out1,out2] = ARRAYHOM(1,[20,3,5])

@@ -27,6 +27,9 @@ git submodule update --remote --merge
 
 ### List of functions/classes
 
+#### arrayhom()
+Homogenizes arrays with varying shapes.
+
 #### dec2basen()
 Converts decimal integers to their base b representation using custom symbols.
 
