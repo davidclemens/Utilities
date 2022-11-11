@@ -1,0 +1,4 @@
+[submodule "+UI/+MatlabSchemer"]
+	path = +UI/+MatlabSchemer
+	url = https://github.com/scottclowe/matlab-schemer
+	branch = master
